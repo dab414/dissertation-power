@@ -7,7 +7,7 @@ This repository contains the R scripts and summaries of all the simulations carr
 ### Simulation Scripts  
 
 * [`powerSimulator.r`](runSimulation/powerSimulator.r): The script used to execute the simulations.  
-* ['hyperParameterTuning.r'](runSimulation/hyperParameterTuning.r'): The script used to vary the *effect size* and *sample size* parameters.
+* [`hyperParameterTuning.r`](runSimulation/hyperParameterTuning.r'): The script used to vary the *effect size* and *sample size* parameters.
 
 ### Summary Scripts  
 
