@@ -1,0 +1,19 @@
+exp2 power analysis
+
+try to think of it like im inputting one term that pushes all the means in the predicted direction to some extent..
+less of like each individual effect
+
+so yea i think implementing the parameter to simulate over as like just a global modifier to all the coefficients in the model would work
+	or the bias is the coefficient lol
+	the coefficient is constant across all fixed effects
+
+	although idk i think there needs to be some notion of scale here
+	the increase in p(lDemand) for each unit increase in time should be smaller than the difference between conditions of the other manipulations
+
+what about something like this:
+
+p(lowDemand) = (intercept + difficulty*difficultyB + difference*differenceB + difference*difficulty*twoWay) * t
+
+the whole thing scales as a function of time
+	time <- seq(0, 1, length.out = nTrials)
+	for (t in time)
