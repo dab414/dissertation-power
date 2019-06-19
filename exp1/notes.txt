@@ -18,3 +18,5 @@ within-subject variance:
       higher noise just means i need to raise bias that much more for the effect to be detected
 
 the one concern i have about deriving effect size from the anova is that it might imply that N and effect size aren't independent  
+
+git test
