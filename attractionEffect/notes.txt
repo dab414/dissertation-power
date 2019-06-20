@@ -1,0 +1,22 @@
+changed everything to be on a log odds scale
+roughly -5 : 5 are at the ends of the probability scale
+
+bias of .9 can be detected with 100% power with N = 10
+bias of 0.1 can only be detected with 40% power with N = 100
+  avg effect size = 0.03
+
+between-subject variance parameters:
+  intSd <- 3
+    i expect this to be quite large in the observed data
+  betaSd <- 0.5
+    increasing this will actually increase the extent to which the ANOVA will detect the effect.. 
+  
+within-subject variance:
+  noiseSd <- 0.25
+    i don't have great intuitions as to what to set this to
+    it feels like this will just influence the scale of bias
+      higher noise just means i need to raise bias that much more for the effect to be detected
+
+the one concern i have about deriving effect size from the anova is that it might imply that N and effect size aren't independent  
+
+git test
