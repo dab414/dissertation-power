@@ -1,9 +1,11 @@
+library(tidyverse)
+library(ez)
 ## global vars
 nTrials <- 700
 
 ## FIXED EFFECTS
 exponentsFixed <- .3
-lossAversionFixed <- 3
+lossAversionFixed <- 2
 learningFixed <- 200
 
 ## RANDOM EFFECTS
@@ -60,7 +62,7 @@ decision <- function(criticalDeckIntensity, bias, trial, subjectProfile, learnin
   
 }
   
-powerSimulator <- function(n, bias, nSims) {
+powerSimulator <- function(n, bias, nSims, threadId) {
   ## function takes in:
     ## n: sample size
     ## bias: functional effect size
@@ -72,20 +74,19 @@ powerSimulator <- function(n, bias, nSims) {
   oneShot <- ifelse(nSims == 1, 1, 0)
 
   ## initialize container for all results
-  experimentResults <- refreshExperimentResults
+  experimentResults <- refreshExperimentResults()
   
-  write.csv(experimentResults, 'experimentResultsCache.csv', row.names = FALSE)
+  write.csv(experimentResults, paste('data/experimentResultsCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
   
   ## Sim loop
   for (sim in 1:nSims) {
     experimentData <- data.frame(subject = numeric(), trial = numeric(), difference = factor(, levels = c('moderate', 'extreme')), 
                                  difficulty = factor(,levels = c('easier', 'harder')), referenceSelection = numeric())
-    write.csv(experimentData, 'experimentDataCache.csv', row.names = FALSE)
+    write.csv(experimentData, paste('data/experimentDataCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
     print(paste('Simulation', sim, 'of', nSims))
     
     ## Subject loop
     for (subject in 1:n) {
-      print(paste('subject:', subject))
       subjectProfile <- buildSubjectProfile()
       
       ## condition codes
@@ -126,8 +127,8 @@ powerSimulator <- function(n, bias, nSims) {
       
       ## every 10 subjects, save out data to cache and dump
       if (subject %% 5 == 0 | subject == n) {
-        experimentData <- rbind(read.csv('experimentDataCache.csv', header = TRUE), experimentData)
-        write.csv(experimentData, 'experimentDataCache.csv', row.names = FALSE)
+        experimentData <- rbind(read.csv(paste('data/experimentDataCacheThread', threadId, '.csv', sep = ''), header = TRUE), experimentData)
+        write.csv(experimentData, paste('data/experimentDataCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
         print(paste('Subject: ', subject, ' of ', n, sep = ''))
         if (subject != n) {
           experimentData <- data.frame(subject = numeric(), trial = numeric(), difference = factor(, levels = c('moderate', 'extreme')), 
@@ -139,23 +140,33 @@ powerSimulator <- function(n, bias, nSims) {
     
     ## compile results from simulation
     experimentResults <- computeStats(translateToDeviation(experimentData), n, bias)
-    experimentResults <- rbind(read.csv('experimentResultsCache.csv', header = TRUE), experimentResults)
-    write.csv(experimentResults, 'experimentResultsCache.csv', row.names = FALSE)
+    experimentResults <- rbind(read.csv(paste('data/experimentResultsCacheThread', threadId, '.csv', sep = ''), header = TRUE), experimentResults)
+    write.csv(experimentResults, paste('data/experimentResultsCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
     
     ## if it's not the last simulation, refresh experiment results
     if (sim != nSims) {
       experimentResults <- refreshExperimentResults()
-    }
+    } 
     
   } ## end simLoop()
   
   if (oneShot){
     return(experimentData)
   } else {
-    ## UPDATE THIS !!
     experimentResults <- experimentResults %>% 
-      mutate(isSig = ifelse(pValue < .05 & predictedDirection, 1, 0))
-    return(data.frame(n = n, bias = abs(bias), power = mean(experimentResults$isSig), avgEffectSize = mean(experimentResults$effectSize), sdEffectSize = sd(experimentResults$effectSize)))
+      mutate(isDifferenceSig = ifelse(differencep < .05 & predictedDirection, 1, 0),
+             isDifficultySig = ifelse(difficultyp < .05, 1, 0),
+             isInteractionSig = ifelse(interactionp < .05, 1, 0))
+
+    return(data.frame(n = n, bias = abs(bias), nSims = nSims, differencePower = mean(experimentResults$isDifferenceSig), 
+                      difficultyPower = mean(experimentResults$isDifficultySig),
+                      interactionPower = mean(experimentResults$isInteractionSig),
+                      avgDifferenceEffectSize = mean(experimentResults$differenceEffectSize), 
+                      sdDifferenceEffectSize = sd(experimentResults$differenceEffectSize),
+                      avgDifficultyEffectSize = mean(experimentResults$difficultyEffectSize), 
+                      sdDifficultyEffectSize = sd(experimentResults$difficultyEffectSize),
+                      avgInteractionEffectSize = mean(experimentResults$interactionEffectSize), 
+                      sdInteractionEffectSize = sd(experimentResults$interactionEffectSize)))
   }
   
 } ## end powerSimulator()

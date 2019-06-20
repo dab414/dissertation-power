@@ -1,5 +1,15 @@
 exp1 power analysis
 
+6/20/2019
+  i think everything is mostly ready to go
+  having the bias at < 0.4 makes the 'difference' effect size so small as to be negligible
+    avg difference effect size of .08 at 10 sims of 100 subjects at bias = 0.4
+    eh actually i might start the bias at .4 to catch effect size = 0.1
+  also going to set the true loss aversion effect from 3 to 2 because it definitely seems relatively stronger than diminishing sensitivity
+  
+  id like to play around with hyper threading 
+    i dont know it well enough to know a priori whether or not it will work.. so there's only one way to find out
+
 6/19/2019
   the below model won't work anymore
     need to be more sophisticated.. model diminishing sensitivity specifically
