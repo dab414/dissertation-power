@@ -70,8 +70,10 @@ powerSimulator <- function(n, bias, nSims) {
   
   ## if only 1 sim, return the experiment data instead
   oneShot <- ifelse(nSims == 1, 1, 0)
+
+  ## initialize container for all results
+  experimentResults <- refreshExperimentResults
   
-  experimentResults <- data.frame(n = numeric(), bias = numeric(), effectSize = numeric(), pValue = numeric(), predictedDirection = logical())
   write.csv(experimentResults, 'experimentResultsCache.csv', row.names = FALSE)
   
   ## Sim loop
@@ -136,12 +138,25 @@ powerSimulator <- function(n, bias, nSims) {
     } ## end subject loop
     
     ## compile results from simulation
-    #experimentResults <- computeStats(translateToDeviation(experimentData), n, bias)
+    experimentResults <- computeStats(translateToDeviation(experimentData), n, bias)
+    experimentResults <- rbind(read.csv('experimentResultsCache.csv', header = TRUE), experimentResults)
+    write.csv(experimentResults, 'experimentResultsCache.csv', row.names = FALSE)
     
+    ## if it's not the last simulation, refresh experiment results
+    if (sim != nSims) {
+      experimentResults <- refreshExperimentResults()
+    }
     
   } ## end simLoop()
   
-  return(experimentData)
+  if (oneShot){
+    return(experimentData)
+  } else {
+    ## UPDATE THIS !!
+    experimentResults <- experimentResults %>% 
+      mutate(isSig = ifelse(pValue < .05 & predictedDirection, 1, 0))
+    return(data.frame(n = n, bias = abs(bias), power = mean(experimentResults$isSig), avgEffectSize = mean(experimentResults$effectSize), sdEffectSize = sd(experimentResults$effectSize)))
+  }
   
 } ## end powerSimulator()
   
@@ -168,19 +183,67 @@ translateToDeviation <- function(d) {
 
   
 computeStats <- function(experimentData, n, bias) {
-  ## takes as input the dataset from a single simulation and returns a dataset summarizing parameters from an ANOVA as well as the levels of the hyperparameters
+  ## takes as input the dataset from a single simulation (as deviation scored on a subject-level) and returns a dataset summarizing parameters from an ANOVA as well as the levels of the hyperparameters
   experimentData$subject <- factor(experimentData$subject)
   experimentData$difference <- factor(experimentData$difference)
   experimentData$difficulty <- factor(experimentData$difficulty)
 
   m1 <- ezANOVA(wid = subject, within = .(difference, difficulty), dv = referenceDeviation, data = experimentData, detailed = TRUE)
   
+  differenceEffectSize <- m1$ANOVA$SSn[2] /(m1$ANOVA$SSn[2] + m1$ANOVA$SSd[2])
+  difficultyEffectSize <- m1$ANOVA$SSn[3] /(m1$ANOVA$SSn[3] + m1$ANOVA$SSd[3])
+  interactionEffectSize <- m1$ANOVA$SSn[4] /(m1$ANOVA$SSn[4] + m1$ANOVA$SSd[4])
   
+  differencep <- m1$ANOVA$p[2]
+  difficultyp <- m1$ANOVA$p[3]
+  interactionp <- m1$ANOVA$p[4]
+  
+  predictedDirection <- testDirection(experimentData)
+  
+  return(data.frame(n = n, bias = abs(bias), differenceEffectSize = differenceEffectSize,
+                    difficultyEffectSize = difficultyEffectSize,
+                    interactionEffectSize = interactionEffectSize,
+                    differencep = differencep,
+                    difficultyp = difficultyp,
+                    interactionp = interactionp,
+                    predictedDirection = predictedDirection))
+  
+}
+
+testDirection <- function(experimentData) {
+  ## takes as input experimentData as deviation scored on a subject level 
+  ## returns whether or not both moderate conditions are higher than both extreme conditions
+  ## essentially only testing the direction for diminishing sensitivity (ie, main effect of difference)
+  
+  cellMeans <- experimentData %>% 
+    group_by(difficulty, difference) %>% 
+    summarize(referenceDeviation = mean(referenceDeviation))
+  
+  output <- 0
+  
+  modHard <- cellMeans[cellMeans$difficulty == 'harder' & cellMeans$difference == 'moderate',]$referenceDeviation
+  modEasy <- cellMeans[cellMeans$difficulty == 'easier' & cellMeans$difference == 'moderate',]$referenceDeviation
+  extHard <- cellMeans[cellMeans$difficulty == 'harder' & cellMeans$difference == 'extreme',]$referenceDeviation
+  extEasy <- cellMeans[cellMeans$difficulty == 'easier' & cellMeans$difference == 'extreme',]$referenceDeviation
+  
+  if (modHard > extHard & modEasy > extEasy) {
+    output <- 1
+  }
+  
+  return(output)
   
 }
 
 
-
+refreshExperimentResults <- function() {
+  return(data.frame(n = numeric(), bias = numeric(), differenceEffectSize = numeric(),
+                    difficultyEffectSize = numeric(),
+                    interactionEffectSize = numeric(),
+                    differencep = numeric(),
+                    difficultyp = numeric(),
+                    interactionp = numeric(),
+                    predictedDirection = logical()))
+}
 
 
 
