@@ -43,7 +43,6 @@ valueFunction <- function(criticalDeckIntensity, bias, subjectProfile) {
   exponentsFinal <- min(max(exponentsFixed * convertBias(bias, exponentsFixed) + subjectProfile['subjectExponents'],0),1)
   ## constained so no one can have reverse loss aversion
   lossAversionFinal <- max(lossAversionFixed * convertBias(bias, lossAversionFixed) + subjectProfile['subjectLossAversion'], 1)
-  
   ## compute value
   ## flipping the x-axis also means that loss aversion needs to be reversed
   out <- ifelse(relativeIntensity < 0, -(-relativeIntensity)^exponentsFinal, lossAversionFinal * (relativeIntensity) ^ exponentsFinal)
@@ -259,20 +258,34 @@ refreshExperimentResults <- function() {
 
 
 
+# convertBias <- function(bias, factorFixed) {
+#   ## This got super complicated but i'm pretty confident it works
+#   ## Check in the sketch book to see the crazy linear algebra
+#   ## Essentially, bias is theoretically sampled from a 0:1 parameter space, where 0 kills the effect and 1 gives it max strength
+#   ## I need to convert this bias to a new vector space with range (1/exponentsFixed):1 where (1/exponentsFixed) kills the effect and 1 gives it max strength
+#   ## note that (1/exponentsFixed):1 is actually max:min, thus the relationship between the theoretical new vector and the old one is r = -1
+#   ## validate this function with the plotting function below
+#   
+#   biasVector <- seq(0,1,.001)
+#   biasIndex <- which(biasVector %in% bias)
+#   out <- -bias + (1/factorFixed)
+#   out <- out * (seq(1/factorFixed, 1, length.out = length(biasVector))[biasIndex] / out)
+#   return(out)
+# }
+
 convertBias <- function(bias, factorFixed) {
-  ## This got super complicated but i'm pretty confident it works
-  ## Check in the sketch book to see the crazy linear algebra
-  ## Essentially, bias is theoretically sampled from a 0:1 parameter space, where 0 kills the effect and 1 gives it max strength
-  ## I need to convert this bias to a new vector space with range (1/exponentsFixed):1 where (1/exponentsFixed) kills the effect and 1 gives it max strength
-  ## note that (1/exponentsFixed):1 is actually max:min, thus the relationship between the theoretical new vector and the old one is r = -1
-  ## validate this function with the plotting function below
-  
+  ## This is way more robust and way simpler
   biasVector <- seq(0,1,.001)
-  biasIndex <- which(biasVector %in% bias)
-  out <- -bias + (1/factorFixed)
-  out <- out * (seq(1/factorFixed, 1, length.out = length(biasVector))[biasIndex] / out)
-  return(out)
+  yvector <- seq(1/factorFixed, 1, length.out = length(biasVector))
+  m1 <- lm(yvector ~ biasVector)
+                 
+  return(m1$coefficients[1] + m1$coefficients[2] * bias)
+  
 }
+
+
+
+
 
 validateConvertBias <- function() {
   d <- data.frame(x = seq(0,1,.01))
