@@ -1,0 +1,191 @@
+---
+title: "Experiment 1 Power Summary"
+author: "Dave Braun"
+date: "June 24, 2019"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(lemon)
+knit_print.data.frame <- lemon_print
+
+biasRange <- c('4-7','8-10')
+nRange <- c('10-50', '60-100')
+
+d <- data.frame()
+
+for (bias in biasRange) {
+  for (n in nRange) {
+    d <- rbind(d, read.csv(paste('../runSimulation/data/powerAnalysisBias', bias, 'nRange', n, '.csv', sep='')))
+  }
+}
+
+write.csv(d, '../runSimulation/data/finalData.csv', row.names = FALSE)
+
+```
+
+This document is dedicated to summarizing the power analysis for Experiment 1. The coding behind this analysis involved lots of complicated simulations, and I think I'll dedicate a separate document to go over exactly how I implemented the analysis, for those interested. This document will simply present the results.  
+
+### Data frame from the analysis
+
+Below is the final dataset outputted from the power simulations:
+
+```{r}
+head(d)
+```
+
+
+## Results of the Power Analysis  
+
+### Design
+
+The overall design is a 2 (Difference: Moderate vs. Extreme) X 2 (Difficulty: Harder than Reference vs. Easier than Reference), and the design determines the difficulty of the critical deck (as opposed to the reference deck). The power to detect an effect was calcuated for all three fixed effects of the design (ie, the two main effects and interaction). *Difference* is the cricital factor for testing for diminishing sensitivity, so we'll start with that one.
+
+### Difference
+The results across sample size and effect size are visualized below. Each square represents 50 simulated experiments.  
+
+```{r}
+d <- d %>% 
+  filter(n == 100) %>% 
+  select(bias, avgDifferenceEffectSize) %>% 
+  rename(standardDifferenceEffectSize = avgDifferenceEffectSize) %>% 
+  inner_join(d)
+
+d %>% 
+  ggplot(aes(x = factor(n), y = factor(round(standardDifferenceEffectSize, 2)))) + 
+  geom_tile(aes(fill = differencePower), color = 'white') + scale_fill_gradient(low = 'steelblue', high = 'red', name = 'Power') + 
+  xlab('Sample Size') + ylab('Effect Size') + 
+  labs(caption = 'Each tile represents the power to detect a significant effect across 50 simulated experiments.', title = 'Difference Effect') + 
+  theme_bw()
+```
+
+Based on these simulations, I should have full power to detect a small effect (.1 - .2) with N = 40.  
+
+Let's look at the relationship between sample size and power for an effect size of .2:  
+
+```{r render=lemon_print}
+d1 <- d %>% 
+  filter(standardDifferenceEffectSize >= .1 & standardDifferenceEffectSize <= .2) %>% 
+  group_by(n) %>% 
+  summarize(power = mean(differencePower)) 
+
+d1
+  
+```
+```{r}
+d1 %>% 
+  ggplot(aes(x = n, y = power)) + 
+  ylim(0, 1) +
+  geom_hline(yintercept = .8, linetype = 'dashed') + 
+  annotate('text', x = 75, y = .75, label = '0.8 Power') +
+  annotate('text', x = 40, y = .95, label = '(Sample Size = 50, Power = 0.88)') +
+  scale_x_continuous(breaks = seq(10,100,10), labels = seq(10,100,10)) + 
+  geom_line(size = 2) + 
+  xlab('Sample Size') + ylab('Power') + 
+  labs(caption ='Effect size between 0.1 and 0.2', title = 'Difference Effect') + 
+  theme_bw()
+```
+
+
+
+We'll need a sample size of 50 to have a sufficient power to detect a minimally interesting effect size.  
+
+Doing the same breakdown for the other two effects:  
+
+### Difficulty
+
+The difficulty variable represents loss aversion of prospect theory. 
+
+```{r}
+d <- d %>% 
+  filter(n == 100) %>% 
+  select(bias, avgDifficultyEffectSize) %>% 
+  rename(standardDifficultyEffectSize = avgDifficultyEffectSize) %>% 
+  inner_join(d)
+
+d %>% 
+  ggplot(aes(x = factor(n), y = factor(round(standardDifficultyEffectSize, 2)))) + 
+  geom_tile(aes(fill = difficultyPower), color = 'white') + scale_fill_gradient(low = 'steelblue', high = 'red', name = 'Power') + 
+  xlab('Sample Size') + ylab('Effect Size') + 
+  labs(caption = 'Each tile represents the power to detect a significant effect across 50 simulated experiments.', title = 'Difficulty Effect') + theme_bw()
+```
+
+```{r render=lemon_print}
+d1 <- d %>% 
+  filter(standardDifficultyEffectSize >= .1 & standardDifficultyEffectSize <= .2) %>% 
+  group_by(n) %>% 
+  summarize(power = mean(difficultyPower)) 
+d1
+  
+```
+
+```{r}
+d1 %>% 
+  ggplot(aes(x = n, y = power)) + 
+  ylim(0, 1) +
+  geom_hline(yintercept = .8, linetype = 'dashed') + 
+  annotate('text', x = 75, y = .75, label = '0.8 Power') +
+  annotate('text', x = 35, y = .95, label = '(Sample Size = 50, Power = 0.88)') +
+  scale_x_continuous(breaks = seq(10,100,10), labels = seq(10,100,10)) + 
+  geom_line(size = 2) + 
+  xlab('Sample Size') + ylab('Power') + 
+  labs(caption ='Effect size between 0.1 and 0.2', title = 'Difficulty Effect') + 
+  theme_bw()
+```
+
+
+These results are consistent with the *difference* effect, where we need a sample size of 50 to reach the 0.8 threshold. A sample size of 40 gets us closer (power = .78) than the difference effect, however.
+
+### Interaction Effect
+
+The interaction effect is the combination of difference and difficulty (ie, diminishing sensitivity and loss aversion), and will likely be the most difficult to detect.
+
+```{r}
+d <- d %>% 
+  filter(n == 100) %>% 
+  select(bias, avgInteractionEffectSize) %>% 
+  rename(standardInteractionEffectSize = avgInteractionEffectSize) %>% 
+  inner_join(d)
+
+d %>% 
+  ggplot(aes(x = factor(n), y = factor(round(standardInteractionEffectSize, 2)))) + 
+  geom_tile(aes(fill = interactionPower), color = 'white') + scale_fill_gradient(low = 'steelblue', high = 'red', name = 'Power') + 
+  xlab('Sample Size') + ylab('Effect Size') + 
+  labs(caption = 'Each tile represents the power to detect a significant effect across 50 simulated experiments.', title = 'Interaction Effect') + theme_bw()
+```
+
+Looks messier than the other two effects. Zooming in between .1-.2:  
+
+```{r render=lemon_print}
+d1 <- d %>% 
+  filter(standardInteractionEffectSize >= .1 & standardInteractionEffectSize <= .2) %>% 
+  group_by(n) %>% 
+  summarize(power = mean(interactionPower)) 
+d1
+  
+```
+```{r}
+d1 %>% 
+  ggplot(aes(x = n, y = power)) + 
+  ylim(0, 1) +
+  geom_hline(yintercept = .8, linetype = 'dashed') + 
+  annotate('text', x = 75, y = .75, label = '0.8 Power') +
+  annotate('text', x = 50, y = .95, label = '(Sample Size = 70, Power = 0.90)') +
+  scale_x_continuous(breaks = seq(10,100,10), labels = seq(10,100,10)) + 
+  geom_line(size = 2) + 
+  xlab('Sample Size') + ylab('Power') + 
+  labs(caption ='Effect size between 0.1 and 0.2', title = 'Interaction Effect') + 
+  theme_bw()
+```
+
+
+I'll need between 60-70 subjects to detect the full, 2 X 2 interaction.
+
+
+
+
+
