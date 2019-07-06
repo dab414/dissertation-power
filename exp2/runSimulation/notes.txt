@@ -1,0 +1,19 @@
+exp2 power analysis
+
+7/5/2019
+  thinking about the modeling:
+    run the prospect theory algorithm as intended across both prospects
+    compute difference in value, convert to probability
+    inputs to value function are still deviation from reference, in this case 8
+    within-subject noise added to the final difference, before converting to probability
+
+  i think im at a point where:
+    the decision function is working correctly
+    the subject-level noise is calibrated appropriately
+  still need to calibrate fixed effects
+
+  it's actually starting to really concern me that diminishing sensitivity is present in the data even if the prospect function is linear
+    it's a function of the softmax or whatever that converts to probability space
+    the floor and ceiling crush the slope, making everything look like diminishing sensitivity...
+    this could be a problem in practice
+      you can't choose a deck more than all the time
