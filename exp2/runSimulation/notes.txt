@@ -1,5 +1,9 @@
 exp2 power analysis
 
+7/6/2019
+  interesting to note that, if only loss aversion is active, there's no difference in risk preferences across the conditions
+  
+
 7/5/2019
   thinking about the modeling:
     run the prospect theory algorithm as intended across both prospects

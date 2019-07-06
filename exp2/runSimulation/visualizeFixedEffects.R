@@ -1,5 +1,6 @@
+library(tidyverse)
 rc <- seq(0,16,.01)
-sc <- c(rep(2, length(rc)), rep(4, length(rc)), rep(12, length(rc)), rep(14, length(rc)))
+sc <- c(rep(6, length(rc)), rep(5, length(rc)), rep(10, length(rc)), rep(11, length(rc)))
   
 d <- data.frame(riskyCritical = rep(rc, 4), safeCritical = sc)
 
@@ -8,9 +9,15 @@ d$proba <- decision(riskyCritical = d$riskyCritical, safeCritical = d$safeCritic
 d %>% 
   ggplot(aes(x = riskyCritical, y = proba)) + 
   geom_line() + 
-  facet_wrap(safeCritical) + 
-  scale_x_continuous(labels = 0:16, breaks = 0:16)
+  facet_wrap(~safeCritical) + 
+  scale_x_continuous(labels = 0:16, breaks = 0:16) + 
+  geom_hline(yintercept = .5, linetype='dashed')
 
+
+conditions <- data.frame(difficulty = factor(c(rep('easier', 2), rep('harder', 2))), 
+                         difference = factor(rep(c('moderate', 'extreme'), 2)),
+                         riskyCritical = c(4, 2, 12, 14),
+                         safeCritical = c(6, 5, 10, 11))
 
 conditions$proba <- with(conditions, decision(riskyCritical = riskyCritical, safeCritical = safeCritical, bias = 1, subjectProfile = subjectProfile))
 

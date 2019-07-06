@@ -1,10 +1,8 @@
 library(tidyverse)
 
-
-#exponentsRandom <- .2
-exponentsRandom <- .42
+exponentsRandom <- .35
 lossAversionRandom <- .60
-pWeightRandom <- .25
+pWeightRandom <- .20
 
 
 visualizeSubjectDifferences <- function(fixedEffect, effectName) {

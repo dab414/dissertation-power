@@ -6,33 +6,21 @@ library(ez)
 nTrials <- 17*4
 
 ## TRUE PARAMETERS
-exponentsFixed <- 1
-#exponentsFixed <- 1
-#lossAversionFixed <- 2
-lossAversionFixed <- 1
-#pWeightFixed <- .7
-#pWeightFixed <- .5
-pWeightFixed <- .9
+exponentsFixed <- .5
+lossAversionFixed <- 2
+pWeightFixed <- .7
+
 
 ## RANDOM EFFECTS
-## keeping these pretty tight for now
-#interceptRandom <- abs(toLogOdds(.05))
-# exponentsRandom <- .2
-# lossAversionRandom <- 1
-# pWeightRandom <- .1
-
-exponentsRandom <- 0
-lossAversionRandom <- 0
-pWeightRandom <- 0
-
+## such that subject parameters have about a .4 correlation with true parameters
+exponentsRandom <- .35
+lossAversionRandom <- .60
+pWeightRandom <- .20
 interceptRandom <- 0
-# exponentsRandom <- 0
-# lossAversionRandom <- 0
-
 
 ## within-subject noise
 noiseSd <- 0
-withinBlockLearningRateNoise <- 50
+
   
 buildSubjectProfile <- function() {
   ## Returns a vector with values to be added to / subtracted from fixed effects for each subject
@@ -64,7 +52,7 @@ pWeightFunction <- function(bias, subjectProfile) {
   ## The purpose of this function is to subjectively weight the probability as a function of both subject-level bias and the parametrically-manipulated bias
   
   ## Essentially the level 2 equation for the probability weight
-  discount <- max(min(pWeightFixed * bias + subjectProfile['subjectPWeight'], 1), 0)
+  discount <- max(min(pWeightFixed * convertBias(bias, pWeightFixed * 0.5) + subjectProfile['subjectPWeight'], 1), 0)
   
   return(0.5 * discount)
 }
@@ -105,7 +93,7 @@ powerSimulator <- function(n, bias, nSims, threadId) {
   ## Sim loop
   for (sim in 1:nSims) {
     experimentData <- data.frame(subject = numeric(), trial = numeric(), difference = factor(, levels = c('moderate', 'extreme')), 
-                                 difficulty = factor(,levels = c('easier', 'harder')), referenceSelection = numeric())
+                                 difficulty = factor(,levels = c('easier', 'harder')), riskySelection = numeric())
     write.csv(experimentData, paste('data/experimentDataCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
     print(paste('Simulation', sim, 'of', nSims))
     
@@ -126,10 +114,6 @@ powerSimulator <- function(n, bias, nSims, threadId) {
         ## blocked trial count
         trialIterator <- 1:(nTrials/4)
         
-        ## create learning rate with min trials to learning being 50
-        ## also between-block noise in learning rate with SD 25
-        learningRate <- max(round(learningFixed + subjectProfile['subjectLearning'] + rnorm(1, 0, withinBlockLearningRateNoise)), 25)
-        
         for (trial in trialIterator) {
           count <- count + 1
           
@@ -137,15 +121,13 @@ powerSimulator <- function(n, bias, nSims, threadId) {
           proba <- decision(riskyCritical = conditions[conditionRow,]$riskyCritical, 
                             safeCritical = conditions[conditionRow,]$safeCritical,
                             bias = bias, 
-                            trial = trial, 
-                            subjectProfile = subjectProfile,
-                            learningRate = learningRate)
+                            subjectProfile = subjectProfile)
           
           ## execute decision and save data
           experimentData <- rbind(experimentData, data.frame(subject = subject, trial = count,
                                                              difference = conditions[conditionRow,]$difference,
                                                              difficulty = conditions[conditionRow,]$difficulty,
-                                                             referenceSelection = ifelse(runif(1) < proba, 1, 0)))
+                                                             riskySelection = ifelse(runif(1) < proba, 1, 0)))
           
           
         } ## end trial iterator
@@ -158,7 +140,7 @@ powerSimulator <- function(n, bias, nSims, threadId) {
         print(paste('Subject: ', subject, ' of ', n, sep = ''))
         if (subject != n) {
           experimentData <- data.frame(subject = numeric(), trial = numeric(), difference = factor(, levels = c('moderate', 'extreme')), 
-                                       difficulty = factor(,levels = c('easier', 'harder')), referenceSelection = numeric())
+                                       difficulty = factor(,levels = c('easier', 'harder')), riskySelection = numeric())
         }
       }
       
@@ -203,9 +185,9 @@ translateToDeviation <- function(d) {
   ## takes as input experiment data 
   d <- d %>% 
     group_by(subject, difference, difficulty) %>% 
-    summarize(referenceSelection = mean(referenceSelection)) %>% 
+    summarize(riskySelection = mean(riskySelection)) %>% 
     unite('condition', c('difference', 'difficulty')) %>% 
-    spread(condition, referenceSelection) %>% 
+    spread(condition, riskySelection) %>% 
     mutate(moderate_easier_deviation = abs(moderate_easier - 0.5),
            moderate_harder_deviation = abs(moderate_harder - 0.5),
            extreme_easier_deviation = abs(extreme_easier - moderate_easier),
