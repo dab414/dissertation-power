@@ -5,21 +5,22 @@ library(ez)
 ## target cycles is 17, 4 decisions per cycle
 nTrials <- 17*4
 
-## TRUE PARAMETERS
-exponentsFixed <- .5
+## TRUE PARAMETERS -- SIGNAL
 lossAversionFixed <- 2
-pWeightFixed <- .7
+## these two are reverse
+## smaller is stronger
+exponentsFixed <- .70
+pWeightFixed <- .80
 
-
-## RANDOM EFFECTS
+## RANDOM EFFECTS -- NOISE
 ## such that subject parameters have about a .4 correlation with true parameters
 exponentsRandom <- .35
 lossAversionRandom <- .60
 pWeightRandom <- .20
-interceptRandom <- 0
+interceptRandom <- 3.5
 
 ## within-subject noise
-noiseSd <- 0
+noiseSd <- 2
 
   
 buildSubjectProfile <- function() {
@@ -52,7 +53,7 @@ pWeightFunction <- function(bias, subjectProfile) {
   ## The purpose of this function is to subjectively weight the probability as a function of both subject-level bias and the parametrically-manipulated bias
   
   ## Essentially the level 2 equation for the probability weight
-  discount <- max(min(pWeightFixed * convertBias(bias, pWeightFixed * 0.5) + subjectProfile['subjectPWeight'], 1), 0)
+  discount <- min(max(pWeightFixed * convertBias(bias, pWeightFixed * 0.5) + subjectProfile['subjectPWeight'], 0), 1)
   
   return(0.5 * discount)
 }
@@ -63,10 +64,10 @@ decision <- function(riskyCritical, safeCritical, bias, subjectProfile) {
   
   ## Level 1 equation
   ## The flip side of the risky prospect (ie reference) will always be adding 0 value..
-  riskyProba <- subjectProfile['subjectIntercept'] + valueFunction(riskyCritical, bias, subjectProfile) * pWeightFunction(bias, subjectProfile)
-  safeProba <- subjectProfile['subjectIntercept'] + valueFunction(safeCritical, bias, subjectProfile) 
+  riskyProba <- valueFunction(riskyCritical, bias, subjectProfile) * pWeightFunction(bias, subjectProfile)
+  safeProba <- valueFunction(safeCritical, bias, subjectProfile) 
   
-  proba <- safeProba - riskyProba + rnorm(1, 0, noiseSd)
+  proba <- subjectProfile['subjectIntercept'] + safeProba - riskyProba + rnorm(1, 0, noiseSd)
   
   proba <- exp(proba) / (1 + exp(proba))
   
@@ -88,13 +89,13 @@ powerSimulator <- function(n, bias, nSims, threadId) {
   ## initialize container for all results
   experimentResults <- refreshExperimentResults()
   
-  write.csv(experimentResults, paste('data/experimentResultsCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
+  write.csv(experimentResults, paste('data/cache/experimentResultsCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
   
   ## Sim loop
   for (sim in 1:nSims) {
     experimentData <- data.frame(subject = numeric(), trial = numeric(), difference = factor(, levels = c('moderate', 'extreme')), 
                                  difficulty = factor(,levels = c('easier', 'harder')), riskySelection = numeric())
-    write.csv(experimentData, paste('data/experimentDataCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
+    write.csv(experimentData, paste('data/cache/experimentDataCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
     print(paste('Simulation', sim, 'of', nSims))
     
     ## Subject loop
@@ -135,8 +136,8 @@ powerSimulator <- function(n, bias, nSims, threadId) {
       
       ## every 10 subjects, save out data to cache and dump
       if (subject %% 5 == 0 | subject == n) {
-        experimentData <- rbind(read.csv(paste('data/experimentDataCacheThread', threadId, '.csv', sep = ''), header = TRUE), experimentData)
-        write.csv(experimentData, paste('data/experimentDataCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
+        experimentData <- rbind(read.csv(paste('data/cache/experimentDataCacheThread', threadId, '.csv', sep = ''), header = TRUE), experimentData)
+        write.csv(experimentData, paste('data/cache/experimentDataCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
         print(paste('Subject: ', subject, ' of ', n, sep = ''))
         if (subject != n) {
           experimentData <- data.frame(subject = numeric(), trial = numeric(), difference = factor(, levels = c('moderate', 'extreme')), 
@@ -147,9 +148,9 @@ powerSimulator <- function(n, bias, nSims, threadId) {
     } ## end subject loop
     
     ## compile results from simulation
-    experimentResults <- computeStats(translateToDeviation(experimentData), n, bias)
-    experimentResults <- rbind(read.csv(paste('data/experimentResultsCacheThread', threadId, '.csv', sep = ''), header = TRUE), experimentResults)
-    write.csv(experimentResults, paste('data/experimentResultsCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
+    experimentResults <- computeStats(experimentData, n, bias)
+    experimentResults <- rbind(read.csv(paste('data/cache/experimentResultsCacheThread', threadId, '.csv', sep = ''), header = TRUE), experimentResults)
+    write.csv(experimentResults, paste('data/cache/experimentResultsCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
     
     ## if it's not the last simulation, refresh experiment results
     if (sim != nSims) {
@@ -162,12 +163,14 @@ powerSimulator <- function(n, bias, nSims, threadId) {
     return(experimentData)
   } else {
     experimentResults <- experimentResults %>% 
-      mutate(isDifferenceSig = ifelse(differencep < .05 & predictedDirection, 1, 0),
+      mutate(isDifferenceSig = ifelse(differencep < .05, 1, 0),
              isDifficultySig = ifelse(difficultyp < .05, 1, 0),
+             isDifficultySigConstrained = ifelse(difficultyp < .05 & predictedDirection, 1, 0),
              isInteractionSig = ifelse(interactionp < .05, 1, 0))
 
     return(data.frame(n = n, bias = abs(bias), nSims = nSims, differencePower = mean(experimentResults$isDifferenceSig), 
                       difficultyPower = mean(experimentResults$isDifficultySig),
+                      difficultyPowerConstrained = mean(experimentResults$isDifficultySigConstrained),
                       interactionPower = mean(experimentResults$isInteractionSig),
                       avgDifferenceEffectSize = mean(experimentResults$differenceEffectSize), 
                       sdDifferenceEffectSize = sd(experimentResults$differenceEffectSize),
@@ -180,25 +183,6 @@ powerSimulator <- function(n, bias, nSims, threadId) {
 } ## end powerSimulator()
   
   
-  
-translateToDeviation <- function(d) {
-  ## takes as input experiment data 
-  d <- d %>% 
-    group_by(subject, difference, difficulty) %>% 
-    summarize(riskySelection = mean(riskySelection)) %>% 
-    unite('condition', c('difference', 'difficulty')) %>% 
-    spread(condition, riskySelection) %>% 
-    mutate(moderate_easier_deviation = abs(moderate_easier - 0.5),
-           moderate_harder_deviation = abs(moderate_harder - 0.5),
-           extreme_easier_deviation = abs(extreme_easier - moderate_easier),
-           extreme_harder_deviation = abs(extreme_harder - moderate_harder)) %>% 
-    select(subject, contains('deviation')) %>% 
-    gather(condition, referenceDeviation, contains('deviation')) %>% 
-    separate(condition, c('difference', 'difficulty'))
-  
-  return(d)
-  
-}
 
   
 computeStats <- function(experimentData, n, bias) {
@@ -207,7 +191,7 @@ computeStats <- function(experimentData, n, bias) {
   experimentData$difference <- factor(experimentData$difference)
   experimentData$difficulty <- factor(experimentData$difficulty)
 
-  m1 <- ezANOVA(wid = subject, within = .(difference, difficulty), dv = referenceDeviation, data = experimentData, detailed = TRUE)
+  m1 <- ezANOVA(wid = subject, within = .(difference, difficulty), dv = riskySelection, data = experimentData, detailed = TRUE)
   
   differenceEffectSize <- m1$ANOVA$SSn[2] /(m1$ANOVA$SSn[2] + m1$ANOVA$SSd[2])
   difficultyEffectSize <- m1$ANOVA$SSn[3] /(m1$ANOVA$SSn[3] + m1$ANOVA$SSd[3])
@@ -230,22 +214,25 @@ computeStats <- function(experimentData, n, bias) {
 }
 
 testDirection <- function(experimentData) {
-  ## takes as input experimentData as deviation scored on a subject level 
-  ## returns whether or not both moderate conditions are higher than both extreme conditions
-  ## essentially only testing the direction for diminishing sensitivity (ie, main effect of difference)
-  
-  cellMeans <- experimentData %>% 
-    group_by(difficulty, difference) %>% 
-    summarize(referenceDeviation = mean(referenceDeviation))
+  ## takes as input experimentData 
+  ## returns 1 if the results of the three planned t tests are significant and if the means are in the right direction
   
   output <- 0
   
-  modHard <- cellMeans[cellMeans$difficulty == 'harder' & cellMeans$difference == 'moderate',]$referenceDeviation
-  modEasy <- cellMeans[cellMeans$difficulty == 'easier' & cellMeans$difference == 'moderate',]$referenceDeviation
-  extHard <- cellMeans[cellMeans$difficulty == 'harder' & cellMeans$difference == 'extreme',]$referenceDeviation
-  extEasy <- cellMeans[cellMeans$difficulty == 'easier' & cellMeans$difference == 'extreme',]$referenceDeviation
+  difficultyMeans <- experimentData %>% 
+    group_by(subject, difficulty) %>% 
+    summarize(riskySelection = mean(riskySelection)) %>% 
+    group_by(difficulty) %>% 
+    summarize(riskySelection = mean(riskySelection)) 
   
-  if (modHard > extHard & modEasy > extEasy) {
+  easierMean <- difficultyMeans[difficultyMeans$difficulty == 'easier',]$riskySelection
+  harderMean <- difficultyMeans[difficultyMeans$difficulty == 'harder',]$riskySelection
+  
+  pEasier <- t.test(experimentData[experimentData$difficulty == 'easier',]$riskySelection, mu = .5)$p.value
+  pHarder <- t.test(experimentData[experimentData$difficulty == 'harder',]$riskySelection, mu = .5)$p.value
+  pContrast <- t.test(experimentData[experimentData$difficulty == 'harder',]$riskySelection, experimentData[experimentData$difficulty == 'easier',]$riskySelection, paired = TRUE)$p.value
+  
+  if (pEasier < .05 & pHarder < .05 & pContrast < .05 & easierMean < .5 & harderMean > .5 & easierMean < harderMean) {
     output <- 1
   }
   

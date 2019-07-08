@@ -1,5 +1,32 @@
 exp2 power analysis
 
+7/8/2019
+  honing in on final settings:
+
+    ## TRUE PARAMETERS -- SIGNAL
+    lossAversionFixed <- 2
+    ## these two are reverse
+    ## smaller is stronger
+    exponentsFixed <- .70
+    pWeightFixed <- .80
+
+    ## RANDOM EFFECTS -- NOISE
+    ## such that subject parameters have about a .4 correlation with true parameters
+    exponentsRandom <- .35
+    lossAversionRandom <- .60
+    pWeightRandom <- .20
+    interceptRandom <- 3.5
+    ## within-subject noise
+    noiseSd <- 2
+
+    at bias = 1, n = 100, nSims = 5
+      difficulty power = 1; avg difficulty effect size = .53
+    at bias = .4, n = 100, nSims = 5
+      difficulty power = .2; avg difficulty effect size = .13
+    at bias = .4, n = 20, nSims = 5
+      difficulty power = 0; avg difficulty effect size = .23
+
+
 7/6/2019
   interesting to note that, if only loss aversion is active, there's no difference in risk preferences across the conditions
   

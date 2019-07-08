@@ -1,5 +1,5 @@
 
-exp1Power <- function(nRange, biasRange, nSims, threadId) {
+exp2Power <- function(nRange, biasRange, nSims, threadId) {
   ## takes as input:
     ## nRange: vector, range of sample size
     ## biasRange: vector, range of bias size
@@ -14,7 +14,7 @@ exp1Power <- function(nRange, biasRange, nSims, threadId) {
   count <- 0
   
   output <- refreshOutputData()
-  write.csv(output, paste('data/powerAnalysisCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
+  write.csv(output, paste('data/cache/powerAnalysisCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
   
   startTime <- Sys.time()
   
@@ -33,11 +33,11 @@ exp1Power <- function(nRange, biasRange, nSims, threadId) {
       print('----------')
       
       if (count %% 10 == 0 | count == length(biasRange) * length(nRange)) {
-        output <- rbind(read.csv(paste('data/powerAnalysisCacheThread', threadId, '.csv', sep = ''), header = TRUE), output)
+        output <- rbind(read.csv(paste('data/cache/powerAnalysisCacheThread', threadId, '.csv', sep = ''), header = TRUE), output)
         if (count == length(biasRange) * length(nRange)) {
           write.csv(output, paste('data/powerAnalysisBias', min(biasRange)*10,'-', max(biasRange)*10,'nRange', min(nRange), '-', max(nRange), '.csv', sep = ''), row.names = FALSE)
         } else {
-          write.csv(output, paste('data/powerAnalysisCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
+          write.csv(output, paste('data/cache/powerAnalysisCacheThread', threadId, '.csv', sep = ''), row.names = FALSE)
           output <- refreshOutputData()
         }
       }
@@ -62,6 +62,7 @@ calcRemainingTime <- function(startTime, count, biasRange, nRange){
 refreshOutputData <- function() {
   d <- data.frame(n = numeric(), bias = numeric(), nSims = numeric(), differencePower = numeric(),
                   difficultyPower = numeric(),
+                  difficultyPowerConstrained = numeric(),
                   interactionPower = numeric(),
                   avgDifferenceEffectSize = numeric(),
                   sdDifferenceEffectSize = numeric(),
