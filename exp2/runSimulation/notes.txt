@@ -26,6 +26,17 @@ exp2 power analysis
     at bias = .4, n = 20, nSims = 5
       difficulty power = 0; avg difficulty effect size = .23
 
+  looking up parameterizations of prospect theory in the literature just now lol (booij et al., 2010; p 10)
+    actually found one study summarizing emprical results across many studies, determines average parameter values to be:
+      exponents: .69
+      loss aversion: 2.07
+      :crying_joy:
+    they separately estimate exponents for gains and losses (as i guess is the original formulation in T&K 1991), the parameter above is for gains
+      for losses: .86
+    suggests sensitivity to losses diminishes less than that to gains
+    im not worrying about this level of detail tho.. 
+    i feel a lot better about the logic of signal to noise ratio though
+
 
 7/6/2019
   interesting to note that, if only loss aversion is active, there's no difference in risk preferences across the conditions
