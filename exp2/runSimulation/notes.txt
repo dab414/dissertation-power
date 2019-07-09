@@ -1,0 +1,61 @@
+exp2 power analysis
+
+7/8/2019
+  honing in on final settings:
+
+    ## TRUE PARAMETERS -- SIGNAL
+    lossAversionFixed <- 2
+    ## these two are reverse
+    ## smaller is stronger
+    exponentsFixed <- .70
+    pWeightFixed <- .80
+
+    ## RANDOM EFFECTS -- NOISE
+    ## such that subject parameters have about a .4 correlation with true parameters
+    exponentsRandom <- .35
+    lossAversionRandom <- .60
+    pWeightRandom <- .20
+    interceptRandom <- 3.5
+    ## within-subject noise
+    noiseSd <- 2
+
+    at bias = 1, n = 100, nSims = 5
+      difficulty power = 1; avg difficulty effect size = .53
+    at bias = .4, n = 100, nSims = 5
+      difficulty power = .2; avg difficulty effect size = .13
+    at bias = .4, n = 20, nSims = 5
+      difficulty power = 0; avg difficulty effect size = .23
+
+  looking up parameterizations of prospect theory in the literature just now lol (booij et al., 2010; p 10)
+    actually found one study summarizing emprical results across many studies, determines average parameter values to be:
+      exponents: .69
+      loss aversion: 2.07
+      :crying_joy:
+    they separately estimate exponents for gains and losses (as i guess is the original formulation in T&K 1991), the parameter above is for gains
+      for losses: .86
+    suggests sensitivity to losses diminishes less than that to gains
+    im not worrying about this level of detail tho.. 
+    i feel a lot better about the logic of signal to noise ratio though
+
+
+7/6/2019
+  interesting to note that, if only loss aversion is active, there's no difference in risk preferences across the conditions
+  
+
+7/5/2019
+  thinking about the modeling:
+    run the prospect theory algorithm as intended across both prospects
+    compute difference in value, convert to probability
+    inputs to value function are still deviation from reference, in this case 8
+    within-subject noise added to the final difference, before converting to probability
+
+  i think im at a point where:
+    the decision function is working correctly
+    the subject-level noise is calibrated appropriately
+  still need to calibrate fixed effects
+
+  it's actually starting to really concern me that diminishing sensitivity is present in the data even if the prospect function is linear
+    it's a function of the softmax or whatever that converts to probability space
+    the floor and ceiling crush the slope, making everything look like diminishing sensitivity...
+    this could be a problem in practice
+      you can't choose a deck more than all the time
