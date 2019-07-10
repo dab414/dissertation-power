@@ -552,7 +552,7 @@ d1</code></pre>
 </div>
 <div id="constrained-difficulty" class="section level3">
 <h3>Constrained Difficulty</h3>
-<p>I also added in a more strict test, where, on each simulation, the effect was only considered detected if the main effect of difficulty in the ANOVA was significant <em>and</em> if means for both conditions were significantly different from chance (in opposite directions). So this isn’t truly the power to detect a single effect, but rather it can be thought of as the power to detect all effects surrounding the difficulty variable. The estimate of effect size, however, is still simply coming from the main effect of difficulty in the difficulty X difference ANOVA. I’m calling this analysis the <em>Constrained Difficulty Analysis</em>.</p>
+<p>I also added in a more strict test, where, on each simulation, the effect was only considered detected if the main effect of difficulty in the ANOVA was significant <em>and</em> if means for both conditions were significantly different from chance (in opposite directions). So this isn’t truly the power to detect a single effect, but rather it can be thought of as the power to detect all effects surrounding the difficulty variable. The estimate of effect size, however, is still simply coming from the main effect of difficulty in the difficulty X difference ANOVA. I’m less convinced that that axis makes sense in this context . . . I probably need to think about what that means here. I’m calling this analysis the <em>Constrained Difficulty Analysis</em>.</p>
 <pre class="r"><code>d &lt;- d %&gt;% 
   filter(n == 100) %&gt;% 
   select(bias, avgDifficultyEffectSize) %&gt;% 
