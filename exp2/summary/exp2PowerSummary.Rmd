@@ -1,0 +1,149 @@
+---
+title: "Experiment 2 Power Summary"
+author: "Dave Braun"
+date: "July 9, 2019"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+
+```{r include=FALSE}
+library(tidyverse)
+
+biasRange <- c('4-7','8-10')
+nRange <- c('10-50', '60-100')
+
+d <- data.frame()
+
+for (bias in biasRange) {
+  for (n in nRange) {
+    d <- rbind(d, read.csv(paste('../runSimulation/data/powerAnalysisBias', bias, 'nRange', n, '.csv', sep='')))
+  }
+}
+
+write.csv(d, '../runSimulation/data/finalData.csv', row.names = FALSE)
+
+```
+
+This document is dedicated to summarizing the power analysis for Experiment 2. Just like Experiment 1, a separate document will be dedicated to summarizing *how* the simulations were implemented--this document simply summarizes the results.  
+
+I'm writing the summary from the analysis first, followed by the results from the analysis. Hopefully that order makes things convenient but not confusing.
+
+**TL;DR**: This analysis was a bit messier than that for Experiment 1, but to detect the *difficulty* effect with sufficient power, I'm concluding that I'll need to run roughly **70 subjects**, which is consistent with the conclusion for Experiment 1.
+
+According to the simulations, I'll need 40 - 50 subjects to detect the main effect of difficulty with an effect size of between .1 - .2 in a 2 X 2 ANOVA. The power to detect this *and* the two, one-sample t-tests that I proposed is a bit lower . . .  The simulations suggesting I might need about 70 subjects to detect a *.5 effect* size with .8 power. So, I'm thinking it'll  be best to aim for 70, thereby granting more than enough power to detect a small main effect and sufficient power to detect all the predicted effects. This number also has the added benefit of keeping sample sizes consistent across experiments.
+
+I think the reason that the full effects (ie, ANOVA plus t-tests) are that hard to detect have to do mainly with the assumtions I made about the random intercept for subjects--in other words, how much each subject will vary with respect to a baseline preference for risky vs. safe deck. If this variability is high, these simulations suggest that detecting the ANOVA *and* t-tests could be challenging with an N < 100. I think this is a point that's best expanded upon when I write up the implementation of the simulations in more detail and I can show how varying certain noise parameters has a great effect on the ability to detect signal.
+
+
+
+### Data frame from the analysis
+
+Below is the final dataset outputted from the power simulations:
+
+```{r}
+head(d)
+```
+
+
+## Results of the Power Analysis  
+
+### Design
+
+The overall design is a 2 (Difference: Moderate vs. Extreme) X 2 (Difficulty: Harder than Reference vs. Easier than Reference), and the DV is proportion of risky deck selections. While the reference level of switching is always one of the risky deck's outcomes, the design determines what the other two possible outcomes (ie, the other risky outcome and the safe outcome) will be on a given trial.    
+
+**Difficulty** is the most important effect I'm interested in testing. This document will focus on that effect.
+
+### Difficulty
+
+Prospect theory predicts that people will be risk averse when all outcomes are equal to or strictly better than reference and risk seeking when all outcomes are equal to or strictly worse than reference. This would be reflected in the data by participants being significantly more risk seeking than chance in the harder than reference difficulty condition, and significantly less risk seeking (ie, risk averse) than chance in the easier than reference condition. Each tile below represents the power to detect only a significant main effect from an ANOVA across 50 simulated experiments at a given sample size and effect size. 
+
+```{r}
+d <- d %>% 
+  filter(n == 100) %>% 
+  select(bias, avgDifficultyEffectSize) %>% 
+  rename(standardDifficultyEffectSize = avgDifficultyEffectSize) %>% 
+  inner_join(d)
+
+d %>% 
+  ggplot(aes(x = factor(n), y = factor(round(standardDifficultyEffectSize, 2)))) + 
+  geom_tile(aes(fill = difficultyPower), color = 'white') + scale_fill_gradient(low = 'steelblue', high = 'red', name = 'Power') + 
+  xlab('Sample Size') + ylab('Effect Size') + 
+  labs(caption = 'Each tile represents the power to detect a significant effect across 50 simulated experiments.', title = 'Difficulty Effect') + theme_bw()
+```
+
+```{r}
+d1 <- d %>% 
+  filter(standardDifficultyEffectSize >= .1 & standardDifficultyEffectSize <= .2) %>% 
+  group_by(n) %>% 
+  summarize(power = mean(difficultyPower)) 
+d1
+  
+```
+
+```{r}
+d1 %>% 
+  ggplot(aes(x = n, y = power)) + 
+  ylim(0, 1) +
+  geom_hline(yintercept = .8, linetype = 'dashed') + 
+  annotate('text', x = 75, y = .75, label = '0.8 Power') +
+  annotate('text', x = 35, y = .95, label = '(Sample Size = 40, Power = 0.78)') +
+  scale_x_continuous(breaks = seq(10,100,10), labels = seq(10,100,10)) + 
+  geom_line(size = 2) + 
+  xlab('Sample Size') + ylab('Power') + 
+  labs(caption ='Effect size between 0.1 and 0.2', title = 'Difficulty Effect') + 
+  theme_bw()
+```
+
+According to these results, **a sample size of 40** would be sufficient to detect a small main effect with about .8 power.  
+
+
+### Constrained Difficulty
+I also added in a more strict test, where, on each simulation, the effect was only considered detected if the main effect of difficulty in the ANOVA was significant *and* if means for both conditions were significantly different from chance (in opposite directions). So this isn't truly the power to detect a single effect, but rather it can be thought of as the power to detect all effects surrounding the difficulty variable. The estimate of effect size, however, is still simply coming from the main effect of difficulty in the difficulty X difference ANOVA. I'm calling this analysis the *Constrained Difficulty Analysis*.
+
+
+```{r}
+d <- d %>% 
+  filter(n == 100) %>% 
+  select(bias, avgDifficultyEffectSize) %>% 
+  rename(standardDifficultyEffectSize = avgDifficultyEffectSize) %>% 
+  inner_join(d)
+
+d %>% 
+  ggplot(aes(x = factor(n), y = factor(round(standardDifficultyEffectSize, 2)))) + 
+  geom_tile(aes(fill = difficultyPowerConstrained), color = 'white') + scale_fill_gradient(low = 'steelblue', high = 'red', name = 'Power', limits = c(0,1)) + 
+  xlab('Sample Size') + ylab('Effect Size') + 
+  labs(caption = 'Each tile represents the power to detect a significant effect across 50 simulated experiments.', title = 'Constrained Difficulty Effect') + theme_bw()
+```
+
+```{r}
+d1 <- d %>% 
+  filter(standardDifficultyEffectSize >= .4 ) %>% 
+  group_by(n) %>% 
+  summarize(power = mean(difficultyPowerConstrained)) 
+d1
+  
+```
+
+```{r}
+d1 %>% 
+  ggplot(aes(x = n, y = power)) + 
+  ylim(0, 1) +
+  geom_hline(yintercept = .8, linetype = 'dashed') + 
+  annotate('text', x = 85, y = .75, label = '0.8 Power') +
+  annotate('text', x = 65, y = .95, label = '(Sample Size = 80, Power = 0.87)') +
+  scale_x_continuous(breaks = seq(10,100,10), labels = seq(10,100,10)) + 
+  geom_line(size = 2) + 
+  xlab('Sample Size') + ylab('Power') + 
+  labs(caption ='Effect size between 0.40 and 0.55', title = 'Constrained Difficulty Effect') + 
+  theme_bw()
+```
+
+According to these results, **a sample size of between 70 to 80** is needed to detect all the predicted difficulty effects. Note that this is for an effect size much larger than that reported above.  
+
+*Effect size here is still being calcualted from the main effect of difficulty from the difficulty X difference ANOVA*
+
+
+
+
