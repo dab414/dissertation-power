@@ -13,7 +13,7 @@ This repository contains the R scripts and summaries of all the simulations carr
 
 * [`powerSummary.html`](https://davebraun.org/dissertation/experiments/power/exp1/) 
 
-## Experiment 1
+## Experiment 2
 
 ### Simulation Scripts  
 
