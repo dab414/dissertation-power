@@ -1,0 +1,119 @@
+---
+title: "Experiment 1 Power Explanation"
+author: "Dave Braun"
+header-includes:
+   - \usepackage{amsmath}
+date: "7/10/2019"
+output: 
+  html_document:
+    code_folding: hide
+    df_print: paged
+    toc: true
+    #number_sections: true
+    theme: flatly
+---
+
+```{r include = FALSE}
+## great mixed-model review: https://stats.idre.ucla.edu/other/mult-pkg/introduction-to-linear-mixed-models/
+library(tidyverse)
+library(latex2exp)
+```
+
+
+This document is dedicated to explaining how the power analyses were implemented for Experiment 1. The document is broken into two major sections:  
+
+  1. Explanation of the theory and code  
+  2. Demonstration with sample experiment datasets
+  
+This got complicated, but I really think it forced me to deeply engage with the essence of what I'm predicting, as well as forcing me to think about what the likely sources of noise will be in this experiment. As is the case with most power analyses, I made many assumptions about what the signal to noise ratio will look like. Hopefully reading through this document will at least give you a sense of my approach and its advantages and limitations.
+
+## Explanation of theory and code {.tabset}
+The explanations for theory and code are split into the two tabs below.
+
+### Theory
+#### **Prospect theory**
+The meat of the theory comes from prospect theory (Kahneman & Tversky, 1979), which is formulated as follows:  
+
+$$V = \sum_{i=1}^n v(x_i)\pi(p_i) $$
+Where the value of a prospect ($V$) is the subjective value of an outcome [$v(x_i)$] weighted by its subjective probability [$\pi(p_i)$] summed across all outcomes of the prospect ($n$). In Experiment 1, the subjective probability term isn't relevant---choices result in outcomes without any uncertainty (this term will be important in Experiment 2). This experiment (and the thesis in general) really focuses on the subjective value function [$v(x_i)$].  
+
+#### **Parameterization of the subjective value function**
+I believe this function was first formalized in Tversky and Kahneman (1992) as a two-part power function, where the focus of the paper was actually on introducing a newer, fancier probability-weighting function. T&K proposed the following general form for the value function:  
+
+
+$$
+v(x) = 
+\begin{cases}
+x^\alpha & \text{if } x \geq 0 \\
+-\lambda(-x)^\beta     & \text{if } x < 0
+\end{cases}
+$$
+
+Where $0 < \alpha < 1$ and $0 < \beta < 1$ are the coefficients of diminishing sensitivity, and $\lambda$ is the coefficient of loss aversion. The loss aversion coefficient has generally been estimated to be around 2 in practice [(Booj et al., 2010)](../../booij_et_al_2010.pdf), and I tried to stick to that in these simulations. For both this experiment and Experiment 2, I made the simplifying assumption that $\alpha = \beta$. In this experiment, I mostly just moved around the diminishing sensitivity parameter until I thought the curves of the function looked reasonable (when plotting the function, see below), and I settled on 0.3 as the fixed parameter, which, in retrospect, was probably too strong. For Experiment 2, I took a more principled approach and set this parameter using what's been observed in previous research.
+
+
+```{r}
+d <- data.frame(x = seq(-10, 10, .01))
+d$y <- ifelse(d$x < 0, -2 * (-d$x)^0.3, d$x^0.3)
+d$y2 <- exp(d$y) / (1 + exp(d$y))
+
+d %>% 
+  ggplot(aes(x = x, y = y)) + 
+  geom_line(size = 2) + 
+  theme_bw() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  ylim(-4,4)+
+  annotate(geom = 'text', label = 'Gain', x = 9, y = .5, size = 5) +
+  annotate(geom = 'text', label = 'Loss', x = -9, y = .5, size = 5) +
+  annotate(geom = 'text', label = 'Value', x = 1.5, y = 3.5, size = 5) +
+  labs(caption = TeX('Value function of prospect theory with $\\alpha = .3$ and $\\lambda = 2$')) +
+  theme(axis.title = element_blank(),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank())
+```
+
+
+#### **Contextualizing prospect theory in the demand selection task**
+So at this point I had to really sit back and think about how to mesh together the concepts above with the design of my experiment at an algorithmic level---this felt like the most dissertation-y thing I've done yet throughout this whole process. But it just comes down to thinking about how to map the inputs of this function to effort intensity of decks, and how to map the output to probability of choosing one deck over the other. The mapping of the output will come later. For the input, because the x-axis in prospect theory is *deviation from reference* rather than any absolute metric, the input here is simply: 
+
+$$
+x_i = CriticalDeckIntensity_i - 0.5
+$$
+where the relative intensity of the critical deck on trial i ($x_i$) is just the intensity of the critical deck on trial i minus that of the reference deck (ie, 0.5). 
+
+The overall outcome of the prospect theory model ($V$) in this case can be thought of as the value of choosing the reference deck. I'll use the more familiar regression term $\hat{Y}$ to represent this expected value.
+
+Because there are only two outcomes, and there is no uncertainty in the outcomes, the model can now be simplified to:
+
+$$
+\hat{Y} = 
+\begin{cases}
+x_i^\alpha & \text{if } x_i \geq 0 \\
+-\lambda(-x_i)^\alpha & \text{if } x_i < 0
+\end{cases}
+$$
+
+As the critical deck intensity increases, $x$ increases, and the value of the reference deck increases. 
+
+#### **The learning mechanism**
+It gets more complicated now, because I need to consider how subjects will gradually learn value over time. My approach was to weight the value function by position in the block, so the model now looks something like this:  
+
+$$
+\hat{Y} = \beta_0 + v(x_i) * \left(\frac{t_i}{T}\right)
+$$
+
+where the outcome of the value function [$v(x_i)$] is weighted by the proportion of the current trial ($t_i$) to the overall number of trials in a block ($T$). 
+
+### Code
+Made you look!
+
+## Demonstration with sample experiment datasets
+Here is even more text!
+
+```{r}
+d <- read.csv('../runSimulation/data/finalData.csv')
+d
+```
+

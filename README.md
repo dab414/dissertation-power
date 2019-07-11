@@ -9,9 +9,12 @@ This repository contains the R scripts and summaries of all the simulations carr
 * [`powerSimulator.r`](exp1/runSimulation/powerSimulator.r): The script used to execute the simulations.  
 * [`hyperParameterTuning.r`](exp1/runSimulation/hyperParameterTuning.r'): The script used to vary the *effect size* and *sample size* parameters.
 
-### Summary Scripts  
+### Summary Documents  
 
 * [`powerSummary.html`](https://davebraun.org/dissertation/experiments/power/exp1/) 
+
+### Explanation Documents
+*Coming soon!*
 
 ## Experiment 2
 
@@ -20,6 +23,9 @@ This repository contains the R scripts and summaries of all the simulations carr
 * [`powerSimulator.r`](exp2/runSimulation/powerSimulator.r): The script used to execute the simulations.  
 * [`hyperParameterTuning.r`](exp2/runSimulation/hyperParameterTuning.r'): The script used to vary the *effect size* and *sample size* parameters.
 
-### Summary Scripts  
+### Summary Documents
 
 * [`powerSummary.html`](https://davebraun.org/dissertation/experiments/power/exp2/) 
+
+### Explanation Documents
+*Coming soon!*
