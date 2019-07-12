@@ -6,7 +6,7 @@ header-includes:
 date: "7/10/2019"
 output: 
   html_document:
-    code_folding: hide
+    #code_folding: hide
     df_print: paged
     toc: true
     #number_sections: true
@@ -27,8 +27,7 @@ This document is dedicated to explaining how the power analyses were implemented
   
 This got complicated, but I really think it forced me to deeply engage with the essence of what I'm predicting, as well as forcing me to think about what the likely sources of noise will be in this experiment. As is the case with most power analyses, I made many assumptions about what the signal to noise ratio will look like. Hopefully reading through this document will at least give you a sense of my approach and its advantages and limitations.
 
-## Explanation of theory and code {.tabset}
-The explanations for theory and code are split into the two tabs below.
+## Explanation of theory and code
 
 ### Theory
 #### **Prospect theory**
@@ -52,7 +51,7 @@ $$
 Where $0 < \alpha < 1$ and $0 < \beta < 1$ are the coefficients of diminishing sensitivity, and $\lambda$ is the coefficient of loss aversion. The loss aversion coefficient has generally been estimated to be around 2 in practice [(Booj et al., 2010)](../../booij_et_al_2010.pdf), and I tried to stick to that in these simulations. For both this experiment and Experiment 2, I made the simplifying assumption that $\alpha = \beta$. In this experiment, I mostly just moved around the diminishing sensitivity parameter until I thought the curves of the function looked reasonable (when plotting the function, see below), and I settled on 0.3 as the fixed parameter, which, in retrospect, was probably too strong. For Experiment 2, I took a more principled approach and set this parameter using what's been observed in previous research.
 
 
-```{r}
+```{r echo=FALSE}
 d <- data.frame(x = seq(-10, 10, .01))
 d$y <- ifelse(d$x < 0, -2 * (-d$x)^0.3, d$x^0.3)
 d$y2 <- exp(d$y) / (1 + exp(d$y))
@@ -79,11 +78,11 @@ d %>%
 So at this point I had to really sit back and think about how to mesh together the concepts above with the design of my experiment at an algorithmic level---this felt like the most dissertation-y thing I've done yet throughout this whole process. But it just comes down to thinking about how to map the inputs of this function to effort intensity of decks, and how to map the output to probability of choosing one deck over the other. The mapping of the output will come later. For the input, because the x-axis in prospect theory is *deviation from reference* rather than any absolute metric, the input here is simply: 
 
 $$
-x_i = CriticalDeckIntensity_i - 0.5
+x_i = 0.5 - CriticalDeckIntensity_i
 $$
-where the relative intensity of the critical deck on trial i ($x_i$) is just the intensity of the critical deck on trial i minus that of the reference deck (ie, 0.5). 
+where the relative intensity of the critical deck on trial i ($x_i$) is just the intensity of the reference deck (ie, 0.5) minus the intensity of the critical deck on trial i. 
 
-The overall outcome of the prospect theory model ($V$) in this case can be thought of as the value of choosing the reference deck. I'll use the more familiar regression term $\hat{Y}$ to represent this expected value.
+The overall outcome of the prospect theory model ($V$) in this case can be thought of as the value of choosing the critical deck. I'll use the more familiar regression term $\hat{Y}$ to represent this expected value. Representing the inputs and outputs in this way has the advantage of putting everything in the same direction of traditional prospect theory. If thinking about it in terms of the graphs above, to the right of reference on the x-axis is the region where the critical deck is *easier* than reference, so this would be construed as a choice between gains. The opposite is true to the left on the x-axis, where the choice is construed as a loss.
 
 Because there are only two outcomes, and there is no uncertainty in the outcomes, the model can now be simplified to:
 
@@ -95,19 +94,196 @@ x_i^\alpha & \text{if } x_i \geq 0 \\
 \end{cases}
 $$
 
-As the critical deck intensity increases, $x$ increases, and the value of the reference deck increases. 
+As the critical deck intensity decreases, $x$ increases, and the value of the critical deck increases. 
 
 #### **The learning mechanism**
-It gets more complicated now, because I need to consider how subjects will gradually learn value over time. My approach was to weight the value function by position in the block, so the model now looks something like this:  
+It gets more complicated now, because I need to consider how subjects will gradually learn value over time. My initial approach was to scale the value function by position in the block, so the model now looks something like this:  
 
 $$
 \hat{Y} = \beta_0 + v(x_i) * \left(\frac{t_i}{T}\right)
 $$
 
-where the outcome of the value function [$v(x_i)$] is weighted by the proportion of the current trial ($t_i$) to the overall number of trials in a block ($T$). 
+where $\beta_0$ is the intercept (ie, baseline bias to prefer critical deck), which in these simulations was set to 0 but will be included in the model for completeness. And where the outcome of the value function [$v(x_i)$] is weighted by the proportion of the current trial ($t_i$) to the overall number of trials in a block ($T$). But it should be more nuanced than this. Looking at the data from Kool et al., (2010), subjects start to asymptote far before the end of the block. So the learning mechanism should be adjusted such that, once a particular trial within the block is reached, the value function operates at full capacity:
+
+$$
+\hat{Y} = \beta_0 + v(x_i) * \min{\left(\left(\frac{t_i}{L}\right), 1\right)}
+$$
+
+Where $L$ is the learning rate, or the trial when learning is complete and asymptote is reached.  
+
+I ran these simulations before figuring out how many trials I'd run in the overall experiment, and this is something I would do differently if I were to do this again. In these simulations, each hypothetical subject experiences each condition one time for 700 trials. I think my thought on that was, because Kool et al. (2010) did 500 trials, that I'd do a few extra here on top of that. Looking at their data (Figure 2a), I decided that the learning seemed to asymptote sufficiently around trial 200. So I fixed the learning rate parameter at ($L = 200$).
+
+#### **Transforming $\hat{Y}$ to probability space**
+
+This is the part of the process I was perhaps least confident in---I couldn't find a great resource explaining how computational-model people just transform the outputs of their models into probabilities. I ended up just doing what I'm used to doing from logistic regression world, which is to treat the outcome as if it were logg odds and transform it to a probability via:  
+
+$$
+P(CriticalDeck) = \frac{exp(\hat{Y})}{(1 + exp(\hat{Y}))}
+$$
+To me, it looked like this function was successful in simply transforming the value space into probability space while maintaining the ordinal direction of predictions. If anyone knows a better approach for doing this, I'd love to hear it, but this seemed to work for my purposes.
+
+#### **Simulating over effect size**
+One important aspect of the simulations was that I could turn the signal "off" or "on", and vary the strength of the signal and measure my ability to detect it. I wanted to be able to pass a scalar to my simulation (between 0 and 1), where 0 turns the signal off, 1 leaves the signal at full strength, and values between 0 and 1 discount the strength of the signal proportional to the value (eg, 0.5 = half-strength signal). This term would be applied to both the loss aversion and diminishing sensitivity parameters and scale them to the same degree.  
+
+For both loss aversion and diminishing sensitivity, a value of 1 effectively "turns them off." This is because loss aversion is a coefficient and diminishing sensitivity is an exponent. For both parameters, I wanted "maximum strength" to be what I defined above (ie, loss aversion = 2; diminishing sensitivity = 0.3). So the conversions I performed on the input bias are below (implementation explained more in the 'code' section):
+
+$$
+bias_{input} = \{0, . . ., 1\} \\
+\\
+bias_{LA} = \left\{ \left(\frac{1}{\lambda}\right), . . ., 1 \right\} \\
+\\
+bias_{DS} = \left\{\left(\frac{1}{\alpha}\right), . . ., 1\right\}
+$$
+The parameters in the value function then get scaled by their respective biases, so:
+
+$$
+\lambda' = \lambda * bias_{LA}\\
+\alpha' = \alpha * bias_{DS}
+$$
+
+
+That's it for the "signal" portion of the model. Feeding Xs (ie, deck intensities) into the model spit out Ys (ie, choice probabilites) that seemed in line with the predictions of prospect theory. 
+
+
+
+#### **Simulating sources of noise**
+I thought it would be important to take the time to simulate subject-level variance into the data---different people will have different loss aversion coefficients, same for diminishing sensitivity and how quickly they're able to learn differences in blocks. So I allowed each of the fixed parameters in the model (ie, $\lambda$, $\alpha$, $L$) to vary between subjects. (I thought [this](https://stats.idre.ucla.edu/other/mult-pkg/introduction-to-linear-mixed-models/) website was an excellent refresher on random effects).  
+
+So we can specifiy the two levels of equations that influence value estimates. Level 1 will be subdivided because of the contingency of the value function (it's just hard to display on one line).
+
+
+
+**Level 1 Equations**
+$$
+\hat{Y} = \beta_{0j} + v(x_i) * \min\left(\left(\frac{t_i}{L_j}\right), 1\right) + \epsilon_{0i} \\
+v(x_i) = 
+\begin{cases}
+x_i^{\alpha'_j} & \text{if } x_i \geq 0 \\
+-\lambda'_j(-x_i)^{\alpha'_j} & \text{if } x_i < 0
+\end{cases}
+$$
+
+Where $\epsilon_{0i}$ is the witihin-trial noise.
+
+**Level 2 Equations**
+$$
+\beta_{0j} = 0 \\
+\alpha'_j = \alpha * bias_{DS} + u_{0j} \\
+\lambda'_j = \lambda * bias_{LA} + u_{1j} \\
+L_j = L + u_{3j} + \epsilon_{1b}
+$$
+Where $\epsilon_{1b}$ is the between-block noise in learning rate. There were also constraints $0 \leq a'_j \leq 1$, $\lambda'_j \geq 1$, and $L_j \geq 50$.  
+
+And the variance-covariance matrix for the random effects:
+
+$$
+u \approx N(0, G) \\
+G = 
+\begin{bmatrix}
+\sigma^2_{DS} & 0 & 0 \\
+0 & \sigma^2_{LA} & 0 \\ 
+0 & 0 & \sigma^2_{L}
+\end{bmatrix}
+$$
+Thus not simulating covariance. And for within-subject noise:
+$$
+\epsilon \approx N(0, R) \\
+G = 
+\begin{bmatrix}
+\sigma^2_{i} & 0  \\
+0 & \sigma^2_{b}  
+\end{bmatrix}
+$$
+defining variance for between-trial noise and between-block learning rate (but no covariance).  
+
+The final specification of the noise parameters (as standard deviations) was as follows:  
+
+$$
+\sigma_{DS} = .2\\
+\sigma_{LA} = 1\\
+\sigma_{L} = 150\\
+\sigma_i = 0\\
+\sigma_b =50
+$$
+And that's it for the theory behind the simulations! 
 
 ### Code
-Made you look!
+
+#### **Establishing subject-level parameters**
+```{r eval=FALSE}
+buildSubjectProfile <- function() {
+  ## Returns a vector with values to be added to / subtracted from fixed effects for each subject
+  subjectProfile <- c(subjectIntercept = rnorm(1, 0, interceptRandom), 
+                      subjectExponents = rnorm(1, 0, exponentsRandom), 
+                      subjectLossAversion = rnorm(1, 0, lossAversionRandom), 
+                      subjectLearning = rnorm(1, 0, learningRandom))
+  return(subjectProfile)
+}
+```
+This function leverages R's `rnorm()` function to draw one sample from a normal distribution with mean of 0 and SD that's specific to the random effect. This function updates the `subjectProfile` variable once per subjects.
+
+#### **The value function**
+```{r eval=FALSE}
+valueFunction <- function(criticalDeckIntensity, bias, subjectProfile) {
+  ## The coding on the line below is such that harder critical decks are to the right on the x-axis
+  ## Which puts the function in the correct direction if the DV is selection of reference deck
+  relativeIntensity <- criticalDeckIntensity - 0.5
+  
+  ## Adjust the value function parameters by bias and random effects
+  ## These are essentially the level 2 equations
+  exponentsFinal <- min(max(exponentsFixed * convertBias(bias, exponentsFixed) + subjectProfile['subjectExponents'],0),1)
+  ## constained so no one can have reverse loss aversion
+  lossAversionFinal <- max(lossAversionFixed * convertBias(bias, lossAversionFixed) + subjectProfile['subjectLossAversion'], 1)
+  ## compute value
+  ## flipping the x-axis also means that loss aversion needs to be reversed
+  out <- ifelse(relativeIntensity < 0, -(-relativeIntensity)^exponentsFinal, lossAversionFinal * (relativeIntensity) ^ exponentsFinal)
+  return(out)
+}
+```
+
+I actually coded this opposite of what I described in the *theory* section, such that the y-axis is selection of reference deck and right of origin on the x-axis represents the extent to which the critical deck is harder than reference. In retrospect, it wouldn've been more intuitive to do it the other way, because doing it this way necessitated that I flip loss aversion (ie, only apply it to positive Xs).  
+
+This function implements the level 2 equations, making subject-level adjustments to the fixed parameters, and it returns the overall output from the value function of prospect theory.
+
+#### **The decision function**
+
+```{r eval=FALSE}
+decision <- function(criticalDeckIntensity, bias, trial, subjectProfile, learningRate) {
+  ## takes as input all this stuff above
+  ## returns the probability of choosing the reference deck
+  
+  ## Level 1 equation
+  proba <- subjectProfile['subjectIntercept'] + valueFunction(criticalDeckIntensity, bias, subjectProfile) * min((trial / learningRate), 1) + rnorm(1, 0, noiseSd) 
+  proba <- exp(proba) / (1 + exp(proba))
+  
+  return(proba)
+  
+}
+```
+The decision function essentially implements the level 1 equation and converts to a probability.  
+
+#### **Executing the decision**
+The decision is binary (ie, `0 = choose critical deck, 1 = choose reference deck`), but the output from the decision function is the probability of choosing the reference deck. To execute the decision, I simply randomly draw a number from a uniform distribution between 0 and 1 and use the decision probability as the criterion. A randomly-drawn number less than criterion means selection of the reference deck:
+
+```{r eval = FALSE}
+referenceSelection = ifelse(runif(1) < proba, 1, 0)
+```
+
+#### **Convert bias function**
+```{r eval = FALSE}
+convertBias <- function(bias, factorFixed) {
+  ## This is way more robust and way simpler
+  biasVector <- seq(0,1,.001)
+  yvector <- seq(1/factorFixed, 1, length.out = length(biasVector))
+  m1 <- lm(yvector ~ biasVector)
+                 
+  return(m1$coefficients[1] + m1$coefficients[2] * bias)
+  
+}
+```
+
+
+Much of the remaining code is just handling all the loops and saving out caches to speed things up.
 
 ## Demonstration with sample experiment datasets
 Here is even more text!
