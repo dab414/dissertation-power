@@ -1,0 +1,75 @@
+---
+title: "Rapid Fire Choice Analyses"
+author: "Dave Braun"
+date: "8/2/2019"
+output: 
+  html_document:
+    code_folding: hide
+    df_print: paged
+    includes:
+      after_body: ../../analysis/footer.html
+      in_header: ../../analysis/favicon.html
+knit:
+  (function(inputFile, encoding) {
+      rmarkdown::render(inputFile,
+                    encoding = encoding,
+                    output_file = 'index.html')})
+---
+```{r include = FALSE}
+library(tidyverse)
+library(data.table)
+library(lme4)
+```
+
+*This document was last updated at `r Sys.time()`.*
+
+This document is dedicated to the power analysis for Experiment 3. I'm taking a different approach here than I did for Experiments 1 and 2. Since Experiment 2 is so similar to this one, and I fit a GLMM to the data, which captures the fixed and random effects estimates from that data, I'll use simulations from that model to estimate the necessary sample for 0.8 power in Experiment 3.
+
+
+```{r}
+d <- read.csv('../../analysis/exp2/data/dstCleanChoice.csv')
+d$selSafeDeck <- ifelse(d$selectedRiskyDeck == 1, 0, 1)
+head(d)
+```
+
+
+## Fit the model to Experiment 2 data
+I'm using the optimal model determined from [Experiment 2 Random Effects Analysis](../../analysis/exp2/scripts/exploratory/randomEffects/), which estimates a random intercept and two random slopes grouped by subject.
+
+```{r}
+d$differenceE <- ifelse(d$difference == 'Moderate', -0.5, 0.5)
+d$difficultyE <- ifelse(d$difficulty == 'Easier than Reference', -0.5, 0.5)
+m1 <- glmer(selSafeDeck ~ difficultyE * differenceE + (1 | subject) + (0 + difficultyE | subject) + (0 + differenceE | subject), data = d , family = binomial, control = glmerControl(optimizer = 'bobyqa'))
+```
+
+```{r}
+newdata <- subset(d, select = -c(selSafeDeck))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
